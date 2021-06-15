@@ -7,10 +7,10 @@ class SampleApp(tk.Tk):
     def __init__(self):
         tk.Tk.__init__(self)
         self._frame = None
-        self.switch_frame(StartPage, "", "")
+        self.switch_frame(StartPage, "", "", "")
 
-    def switch_frame(self, frame_class, first, second):
-        new_frame = frame_class(self, first, second)
+    def switch_frame(self, frame_class, first, second, third):
+        new_frame = frame_class(self, first, second, third)
         if self._frame is not None:
             self._frame.destroy()
         self._frame = new_frame
@@ -42,9 +42,9 @@ class StartPage(tk.Frame):
         index = int(w.curselection()[0])
         value = w.get(index)
         print('You selected item {}: "{}"'.format(index, value))
-        self.master.switch_frame(PageOne, self.pat[index][1], "")
+        self.master.switch_frame(PageOne, self.pat[index][1], "", "")
 
-    def __init__(self, master, name, surname):
+    def __init__(self, master, name, surname, _):
         self.name = name
         self.pat = []
         tk.Frame.__init__(self, master)
@@ -66,6 +66,7 @@ def dateToInt(s):
     i = s.find("T")
     return int(s[:i].replace("-", ""))
 
+
 class PageOne(tk.Frame):
 
     async def getCos(self):
@@ -77,8 +78,24 @@ class PageOne(tk.Frame):
         patients = await patients.fetch()
         self.text.set("ID:{}   gender:{}   birth date:{}    name: {}".format(self.id, patients[0].gender, patients[0].birthDate, patients[0].name[0].given[0] + " " + patients[0].name[0].family))
         print(patients[0].gender, patients[0].birthDate, self.id, patients[0].name[0].given[0] + " " + patients[0].name[0].family)
-        observations = await client.resources('Observation').search(subject=self.id).fetch_all()
-        medical = await client.resources('MedicationRequest').search(subject=self.id).fetch_all()
+        if self.dates !="":
+            if self.datee!="":
+                observations = await client.resources('Observation').search(subject=self.id, date=">"+self.dates).search(date="<"+self.datee).fetch_all()
+                medical = await client.resources('MedicationRequest').search(subject=self.id,
+                                                                             date=">" + self.dates).search(date="<"+self.datee).fetch_all()
+            else:
+                observations = await client.resources('Observation').search(subject=self.id,
+                                                                            date=">" + self.dates).fetch_all()
+                medical = await client.resources('MedicationRequest').search(subject=self.id,
+                                                                             date=">" + self.dates).fetch_all()
+        elif self.datee!="":
+            observations = await client.resources('Observation').search(subject=self.id, date="<"+self.datee).fetch_all()
+            medical = await client.resources('MedicationRequest').search(subject=self.id, date="<"+self.datee).fetch_all()
+        else:
+            observations = await client.resources('Observation').search(subject=self.id).fetch_all()
+            medical = await client.resources('MedicationRequest').search(subject=self.id).fetch_all()
+
+
         for i in observations:
             try:
                 i.component
@@ -112,8 +129,10 @@ class PageOne(tk.Frame):
         self.scroll.config(command=self.list.yview)
 
 
-    def __init__(self, master, id, _):
+    def __init__(self, master, id, dates, datee):
         self.id = id
+        self.dates = dates
+        self.datee = datee
         self.all = []
         tk.Frame.__init__(self, master)
         self.text = tk.StringVar()
@@ -123,10 +142,16 @@ class PageOne(tk.Frame):
         self.list.pack(side=tk.LEFT, fill=tk.BOTH)
         self.scroll = tk.Scrollbar(self)
         self.scroll.pack(side=tk.RIGHT, fill=tk.BOTH)
+        self.inpute = tk.Entry(self)
+        self.inpute.pack(side=tk.RIGHT)
+        self.inputs = tk.Entry(self)
+        self.inputs.pack(side=tk.RIGHT)
+        tk.Button(self, text="Filter date",
+                  command=lambda: master.switch_frame(PageOne, self.id, self.inputs.get(), self.inpute.get())).pack()
         loop = asyncio.get_event_loop()
         loop.run_until_complete(self.getCos())
         tk.Button(self, text="Return to start page",
-                  command=lambda: master.switch_frame(StartPage, "", "")).pack()
+                  command=lambda: master.switch_frame(StartPage, "", "", "")).pack()
 
 
 if __name__ == "__main__":
